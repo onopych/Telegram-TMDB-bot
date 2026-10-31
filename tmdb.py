@@ -55,7 +55,26 @@ def get_details_about_tv_show(tv_show_id: int) -> dict:
     details = {
         'name': data['name'],
         'status': data['status'],
+        'overview': data['overview'],
         'last_episode_to_air': _parse_episode_info(data['last_episode_to_air']),
         'next_episode_to_air': _parse_episode_info(data['next_episode_to_air']),
     }
+    return details
+
+
+def get_episode_details(
+    tv_show_id: int,
+    season_number: int,
+    episode_number: int,
+) -> dict:
+    path = (
+        f'/tv/{tv_show_id}'
+        f'/season/{season_number}'
+        f'/episode/{episode_number}'
+    )
+    data = _tmdb_get(path)
+    details = _parse_episode_info(data)
+    assert details is not None
+    details['name'] = data['name']
+    details['overview'] = data['overview']
     return details
