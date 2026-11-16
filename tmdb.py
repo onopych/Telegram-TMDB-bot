@@ -1,20 +1,26 @@
 from datetime import date
 
-import requests
+import httpx
 
 from config import TMDB_TOKEN
 
-TMDB_API_URL = 'https://api.themoviedb.org/3'
 
-session = requests.Session()
-session.headers.update({'Authorization': f'Bearer {TMDB_TOKEN}'})
-
-
-def _tmdb_get(path: str, params: dict | None = None) -> dict:
-    response = session.get(
-        TMDB_API_URL + path,
-        params=params,
+def get_new_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        base_url='https://api.themoviedb.org/3',
+        headers={'Authorization': f'Bearer {TMDB_TOKEN}'},
         timeout=10,
+    )
+
+
+async def _tmdb_get(
+        client: httpx.AsyncClient,
+        path: str,
+        params: dict | None = None,
+) -> dict:
+    response = await client.get(
+        path,
+        params=params,
     )
     response.raise_for_status()
     return response.json()
@@ -31,8 +37,8 @@ def _extract_year(string_date: str | None) -> str | None:
     return str(parsed_date.year) if parsed_date is not None else None
 
 
-def multi_search(name: str) -> list[dict]:
-    data = _tmdb_get('/search/multi', params={'query': name})
+async def multi_search(client: httpx.AsyncClient, name: str) -> list[dict]:
+    data = await _tmdb_get(client, '/search/multi', params={'query': name})
     results = []
     for item in data['results']:
         parsed_item = {
@@ -65,8 +71,11 @@ def _parse_episode_info(episode: dict | None) -> dict | None:
     return parsed_episode
 
 
-def _get_details_about_tv_show(tv_show_id: int) -> dict:
-    data = _tmdb_get(f'/tv/{tv_show_id}')
+async def _get_details_about_tv_show(
+        client: httpx.AsyncClient,
+        tv_show_id: int,
+) -> dict:
+    data = await _tmdb_get(client, f'/tv/{tv_show_id}')
     details = {
         'name': data['name'],
         'status': data['status'],
@@ -80,8 +89,11 @@ def _get_details_about_tv_show(tv_show_id: int) -> dict:
     return details
 
 
-def _get_details_about_movie(movie_id: int) -> dict:
-    data = _tmdb_get(f'/movie/{movie_id}')
+async def _get_details_about_movie(
+        client: httpx.AsyncClient,
+        movie_id: int,
+) -> dict:
+    data = await _tmdb_get(client, f'/movie/{movie_id}')
     details = {
         'name': data['title'],
         'status': data['status'],
@@ -102,8 +114,11 @@ def _calculate_age(birthday: date | None, deathday: date | None) -> int | None:
     return end.year - birthday.year - birthday_not_yet_this_year
 
 
-def _get_details_about_person(person_id: int) -> dict:
-    data = _tmdb_get(f'/person/{person_id}')
+async def _get_details_about_person(
+        client: httpx.AsyncClient,
+        person_id: int,
+) -> dict:
+    data = await _tmdb_get(client, f'/person/{person_id}')
     birthday = _parse_date(data.get('birthday'))
     deathday = _parse_date(data.get('deathday'))
     details = {
@@ -126,8 +141,8 @@ _DETAILS_GETTERS = {
 }
 
 
-def get_details(item: dict) -> dict:
+async def get_details(client: httpx.AsyncClient, item: dict) -> dict:
     details_getter = _DETAILS_GETTERS.get(item['media_type'])
     if details_getter is None:
         raise ValueError(f'Invalid media type: {item["media_type"]}')
-    return details_getter(item['id'])
+    return await details_getter(client, item['id'])

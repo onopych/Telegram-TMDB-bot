@@ -1,7 +1,11 @@
+import asyncio
+
 import tmdb
 
-def main() -> None:
+
+async def main() -> None:
     pass
 
+
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
